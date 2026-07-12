@@ -7,6 +7,7 @@ import {
   type WebhookPayload,
 } from "@/lib/whatsapp";
 import { processInbound } from "@/lib/automation";
+import { ensureLoaded, logWebhookEvent, persist } from "@/lib/store";
 
 /**
  * WhatsApp Cloud API webhook.
@@ -66,7 +67,11 @@ function verifySignature(rawBody: string, signature: string | null): boolean {
 export async function POST(request: Request): Promise<Response> {
   const rawBody = await request.text();
 
+  await ensureLoaded();
+
   if (!verifySignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+    logWebhookEvent({ source: "whatsapp", event: "invalid_signature", summary: "Rejected webhook: invalid signature", payload: null, status: "failed" });
+    await persist();
     return new Response("Invalid signature", { status: 401 });
   }
 
@@ -74,6 +79,8 @@ export async function POST(request: Request): Promise<Response> {
   try {
     payload = JSON.parse(rawBody) as WebhookPayload;
   } catch {
+    logWebhookEvent({ source: "whatsapp", event: "parse_error", summary: "Rejected webhook: malformed JSON body", payload: null, status: "failed" });
+    await persist();
     return new Response("Bad request", { status: 400 });
   }
 
@@ -81,6 +88,13 @@ export async function POST(request: Request): Promise<Response> {
     const contactName = value.contacts?.[0]?.profile?.name;
     for (const message of value.messages ?? []) {
       await handleIncomingMessage(message, contactName);
+      logWebhookEvent({
+        source: "whatsapp",
+        event: "messages",
+        summary: `Inbound ${message.type} message from ${contactName ? `${contactName} (+${message.from})` : `+${message.from}`}`,
+        payload: message,
+        status: "processed",
+      });
     }
     for (const status of value.statuses ?? []) {
       // Delivery lifecycle: sent → delivered → read (or failed). Persist these
@@ -88,8 +102,17 @@ export async function POST(request: Request): Promise<Response> {
       console.info(
         `[whatsapp] status ${status.status} for ${status.id} → ${status.recipient_id}`,
       );
+      logWebhookEvent({
+        source: "whatsapp",
+        event: "message_status",
+        summary: `Status update: ${status.status} for ${status.recipient_id}`,
+        payload: status,
+        status: "processed",
+      });
     }
   }
+
+  await persist();
 
   // Always 200 quickly; Meta retries on non-2xx and disables flaky webhooks.
   return new Response("OK", { status: 200 });

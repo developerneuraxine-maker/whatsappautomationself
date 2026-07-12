@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Inbox,
@@ -20,6 +20,7 @@ import {
   CreditCard,
   Settings,
   ChevronLeft,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,8 +34,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Inbox, label: "Inbox", href: "/dashboard/chat" },
-  { icon: Bell, label: "Reminders", href: "#" },
-  { icon: LifeBuoy, label: "My support", href: "#" },
+  { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
+  { icon: LifeBuoy, label: "My support", href: "/dashboard/support" },
   { icon: GitBranch, label: "Flows", href: "/dashboard/workflows" },
   {
     icon: ChevronRight,
@@ -42,38 +43,60 @@ const navItems: NavItem[] = [
     href: "#",
     children: [
       { label: "WhatsApp Templates", href: "/dashboard/templates" },
-      { label: "Groups", href: "#" },
+      { label: "Groups", href: "/dashboard/groups" },
       { label: "Contacts", href: "/dashboard/crm" },
-      { label: "Transactions", href: "#" },
+      { label: "Transactions", href: "/dashboard/transactions" },
       { label: "Campaigns", href: "/dashboard/campaigns" },
-      { label: "WhatsApp Forms", href: "#" },
-      { label: "Canned Messages", href: "#" },
-      { label: "Tags", href: "#" },
-      { label: "Columns", href: "#" },
-      { label: "Opts Management", href: "#" },
-      { label: "Webhook Events", href: "#" },
+      { label: "WhatsApp Forms", href: "/dashboard/forms" },
+      { label: "Canned Messages", href: "/dashboard/canned-messages" },
+      { label: "Tags", href: "/dashboard/tags" },
+      { label: "Columns", href: "/dashboard/columns" },
+      { label: "Opts Management", href: "/dashboard/opt-management" },
+      { label: "Webhook Events", href: "/dashboard/webhook-events" },
     ],
   },
   { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
-  { icon: ShoppingBag, label: "Commerce", href: "#" },
+  { icon: ShoppingBag, label: "Commerce", href: "/dashboard/commerce" },
   { icon: Image, label: "Gallery", href: "/dashboard/gallery" },
-  { icon: MessageCircleQuestion, label: "FAQ Bot", href: "#" },
+  { icon: MessageCircleQuestion, label: "FAQ Bot", href: "/dashboard/faq-bot" },
   { icon: Bot, label: "Chatbot", href: "/dashboard/chatbots" },
-  { icon: Sparkles, label: "AI Assistant", href: "#" },
-  { icon: Building2, label: "Organizations", href: "#" },
-  { icon: Code2, label: "API Endpoints", href: "#" },
-  { icon: CreditCard, label: "Billing", href: "#" },
+  { icon: Sparkles, label: "AI Assistant", href: "/dashboard/ai-assistant" },
+  { icon: Building2, label: "Organizations", href: "/dashboard/organizations" },
+  { icon: Code2, label: "API Endpoints", href: "/dashboard/api-keys" },
+  { icon: CreditCard, label: "Billing", href: "/dashboard/billing" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ];
 
-export default function Sidebar() {
+interface SidebarUser {
+  firstName: string;
+  lastName: string;
+  email: string;
+  companyName?: string;
+}
+
+export default function Sidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
     return href !== "#" && pathname.startsWith(href);
+  }
+
+  const initials = `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+  const fullName = `${user.firstName} ${user.lastName}`.trim();
+
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.replace("/auth/login");
+      router.refresh();
+    }
   }
 
   return (
@@ -206,14 +229,25 @@ export default function Sidebar() {
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
             style={{ background: "#2563eb" }}
+            title={fullName}
           >
-            AA
+            {initials}
           </div>
           {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-white truncate">Alex Admin</div>
-              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>Growth Plan</div>
-            </div>
+            <>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-white truncate">{fullName}</div>
+                <div className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{user.companyName || user.email}</div>
+              </div>
+              <button
+                onClick={logout}
+                disabled={loggingOut}
+                title="Log out"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors flex-shrink-0 disabled:opacity-50"
+              >
+                <LogOut className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.5)" }} />
+              </button>
+            </>
           )}
         </div>
       </div>

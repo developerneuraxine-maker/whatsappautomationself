@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Zap, Eye, EyeOff, ArrowRight, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Zap, Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 const perks = [
@@ -13,9 +14,61 @@ const perks = [
   "Cancel anytime",
 ];
 
+const COUNTRY_CODES = [
+  { code: "+1", flag: "🇺🇸" },
+  { code: "+44", flag: "🇬🇧" },
+  { code: "+91", flag: "🇮🇳" },
+  { code: "+55", flag: "🇧🇷" },
+];
+
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
+  const [phoneLocal, setPhoneLocal] = useState("");
+  const [password, setPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
+
+  const canSubmit = firstName.trim() && lastName.trim() && email.trim() && password.length >= 8 && agreed && !submitting;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          companyName: companyName.trim(),
+          phone: phoneLocal.trim() ? `${countryCode}${phoneLocal.trim()}` : undefined,
+          password,
+        }),
+      });
+      const json = await res.json() as { ok: boolean; error?: string };
+      if (!json.ok) {
+        setError(json.error ?? "Could not create your account.");
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#050508] flex relative overflow-hidden">
@@ -59,8 +112,8 @@ export default function RegisterPage() {
           {/* Testimonial */}
           <div className="glass-card p-5">
             <p className="text-sm text-white/70 italic mb-4">
-              "WhatsFlow AI helped us 3x our conversions in 30 days. The AI chatbot
-              handles 90% of our customer queries automatically."
+              &ldquo;WhatsFlow AI helped us 3x our conversions in 30 days. The AI chatbot
+              handles 90% of our customer queries automatically.&rdquo;
             </p>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-[#00FF87]/20 flex items-center justify-center text-sm font-bold text-[#00FF87]">S</div>
@@ -105,12 +158,14 @@ export default function RegisterPage() {
             </div>
 
             {/* Form */}
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-white/70 mb-1.5">First Name</label>
                   <input
                     type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Alex"
                     className="w-full bg-white/5 border border-white/12 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF87]/50 transition-all"
                   />
@@ -119,6 +174,8 @@ export default function RegisterPage() {
                   <label className="block text-xs font-medium text-white/70 mb-1.5">Last Name</label>
                   <input
                     type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     placeholder="Johnson"
                     className="w-full bg-white/5 border border-white/12 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF87]/50 transition-all"
                   />
@@ -129,6 +186,8 @@ export default function RegisterPage() {
                 <label className="block text-xs font-medium text-white/70 mb-1.5">Work Email</label>
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   className="w-full bg-white/5 border border-white/12 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF87]/50 transition-all"
                 />
@@ -138,6 +197,8 @@ export default function RegisterPage() {
                 <label className="block text-xs font-medium text-white/70 mb-1.5">Company Name</label>
                 <input
                   type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Your Company Ltd."
                   className="w-full bg-white/5 border border-white/12 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF87]/50 transition-all"
                 />
@@ -146,14 +207,19 @@ export default function RegisterPage() {
               <div>
                 <label className="block text-xs font-medium text-white/70 mb-1.5">Phone Number</label>
                 <div className="flex gap-2">
-                  <select className="bg-white/5 border border-white/12 rounded-xl px-3 py-3 text-sm text-white/70 focus:outline-none focus:border-[#00FF87]/50 transition-all w-24">
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+44">🇬🇧 +44</option>
-                    <option value="+91">🇮🇳 +91</option>
-                    <option value="+55">🇧🇷 +55</option>
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="bg-white/5 border border-white/12 rounded-xl px-3 py-3 text-sm text-white/70 focus:outline-none focus:border-[#00FF87]/50 transition-all w-24"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                    ))}
                   </select>
                   <input
                     type="tel"
+                    value={phoneLocal}
+                    onChange={(e) => setPhoneLocal(e.target.value)}
                     placeholder="555 0100"
                     className="flex-1 bg-white/5 border border-white/12 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF87]/50 transition-all"
                   />
@@ -165,6 +231,8 @@ export default function RegisterPage() {
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 8 characters"
                     className="w-full bg-white/5 border border-white/12 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF87]/50 transition-all pr-10"
                   />
@@ -182,23 +250,34 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   id="terms"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
                   className="mt-0.5 w-4 h-4 accent-[#00FF87]"
                 />
                 <label htmlFor="terms" className="text-xs text-white/50 leading-relaxed cursor-pointer">
-                  I agree to the{" "}
-                  <Link href="#" className="text-[#00FF87] hover:underline">Terms of Service</Link>{" "}
-                  and{" "}
-                  <Link href="#" className="text-[#00FF87] hover:underline">Privacy Policy</Link>
+                  I agree to the Terms of Service and Privacy Policy
                 </label>
               </div>
 
-              <Link
-                href="/dashboard"
-                className="btn-primary w-full justify-center py-3.5 text-base"
+              {error && (
+                <div className="flex items-start gap-2 p-3 rounded-xl text-sm bg-red-500/10 border border-red-500/25 text-red-300">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="btn-primary w-full justify-center py-3.5 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Free Account
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                  <>
+                    Create Free Account
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
             </form>
 
             <p className="text-center text-sm text-white/50 mt-5">

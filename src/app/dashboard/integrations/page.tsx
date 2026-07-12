@@ -4,9 +4,10 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Check, Plug, Search, X, AlertCircle, CheckCircle, Copy, ExternalLink,
-  Eye, EyeOff, Loader2, Wifi, WifiOff, Phone,
+  Eye, EyeOff, Loader2, Wifi, WifiOff, Phone, KeyRound, ShieldCheck,
 } from "lucide-react";
 import Header from "@/components/dashboard/Header";
+import { INTEGRATION_FIELDS, type CredentialField } from "@/lib/integration-fields";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -25,12 +26,30 @@ interface PhoneOption {
   token: string;
 }
 
+interface BackendIntegration {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  connected: boolean;
+  connectedAt?: string;
+  accountLabel?: string;
+  hasCredentials: boolean;
+}
+
+interface ApiKeyOption {
+  id: string;
+  name: string;
+  revoked: boolean;
+}
+
 /* ─── Integration catalogue ──────────────────────────────────────────────── */
 
 const INTEGRATIONS = [
   { key: "stripe",       name: "Stripe",           category: "Payments",    description: "Trigger messages on payments and subscriptions." },
   { key: "zapier",       name: "Zapier",            category: "Automation",  description: "Connect to 6000+ apps with no code." },
-  { key: "openai",       name: "OpenAI",            category: "AI",          description: "Power AI replies with GPT models.", connected: true },
+  { key: "openai",       name: "OpenAI",            category: "AI",          description: "Power AI replies with GPT models." },
   { key: "meta",         name: "Meta / Facebook",   category: "Social",      description: "Run WhatsApp and Facebook ads, sync leads and audiences." },
   { key: "woocommerce",  name: "WooCommerce",       category: "E-commerce",  description: "Sync orders, products and abandoned carts from your WordPress store." },
   { key: "telegram",     name: "Telegram",          category: "Messaging",   description: "Bridge your Telegram bot to the same automation workflows." },
@@ -251,6 +270,190 @@ function PhoneSelectModal({ phones, onClose }: { phones: PhoneOption[]; onClose:
   );
 }
 
+/* ─── Connect modal: real credentials, validated live against the provider ── */
+
+function ConnectModal({ item, onClose, onConnected }: {
+  item: { key: string; name: string; category: string; description: string };
+  onClose: () => void;
+  onConnected: (integration: BackendIntegration) => void;
+}) {
+  const fields: CredentialField[] = INTEGRATION_FIELDS[item.key] ?? [];
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [reveal, setReveal] = useState<Record<string, boolean>>({});
+  const [apiKeys, setApiKeys] = useState<ApiKeyOption[] | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const needsApiKeyPicker = fields.some(f => f.type === "apikey-select");
+
+  useEffect(() => {
+    if (!needsApiKeyPicker) return;
+    fetch("/api/api-keys").then(r => r.json()).then((d: { keys?: ApiKeyOption[] }) => {
+      setApiKeys((d.keys ?? []).filter(k => !k.revoked));
+    }).catch(() => setApiKeys([]));
+  }, [needsApiKeyPicker]);
+
+  function setField(key: string, val: string) {
+    setValues(v => ({ ...v, [key]: val }));
+  }
+
+  const canSubmit = fields.every(f => (values[f.key] ?? "").trim().length > 0) && !connecting;
+
+  async function submit() {
+    setConnecting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: item.key, name: item.name, description: item.description,
+          category: item.category, credentials: values,
+        }),
+      });
+      const json = await res.json() as { ok: boolean; integration?: BackendIntegration; error?: string };
+      if (json.ok && json.integration) {
+        onConnected(json.integration);
+      } else {
+        setError(json.error ?? "Could not verify these credentials.");
+      }
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-lg"
+            style={{ background: "#2563eb" }}>{item.name.charAt(0)}</div>
+          <div className="flex-1">
+            <h2 className="font-semibold text-gray-900">Connect {item.name}</h2>
+            <p className="text-xs text-gray-400">
+              {needsApiKeyPicker ? "Pick one of your API keys" : "Enter real credentials — we verify them live before connecting"}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto">
+          {fields.length === 0 && (
+            <p className="text-sm text-gray-500">No connector is configured for this integration yet.</p>
+          )}
+
+          {fields.map(f => {
+            if (f.type === "apikey-select") {
+              return (
+                <div key={f.key}>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{f.label}</label>
+                  {apiKeys === null ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading your API keys…
+                    </div>
+                  ) : apiKeys.length === 0 ? (
+                    <div className="flex items-start gap-2 p-3 rounded-xl text-xs"
+                      style={{ background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e" }}>
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <span>
+                        You don&rsquo;t have any active API keys yet. Create one on the{" "}
+                        <a href="/dashboard/api-keys" className="underline font-medium">API Endpoints</a> page, then come back here.
+                      </span>
+                    </div>
+                  ) : (
+                    <select value={values[f.key] ?? ""} onChange={e => setField(f.key, e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400">
+                      <option value="">Select an API key…</option>
+                      {apiKeys.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                    </select>
+                  )}
+                  {f.helpText && <p className="text-[11px] text-gray-400 mt-1">{f.helpText}</p>}
+                </div>
+              );
+            }
+
+            if (f.type === "textarea") {
+              return (
+                <div key={f.key}>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{f.label}</label>
+                  <textarea value={values[f.key] ?? ""} onChange={e => setField(f.key, e.target.value)}
+                    rows={6} placeholder={f.placeholder}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-mono text-gray-700 focus:outline-none focus:border-blue-400 resize-none" />
+                  {f.helpText && <p className="text-[11px] text-gray-400 mt-1">{f.helpText}</p>}
+                  {f.helpUrl && (
+                    <a href={f.helpUrl} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline inline-flex items-center gap-0.5 mt-1">
+                      Where do I find this? <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
+              );
+            }
+
+            const isPassword = f.type === "password";
+            const shown = reveal[f.key];
+            return (
+              <div key={f.key}>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{f.label}</label>
+                <div className="relative">
+                  <input
+                    type={isPassword && !shown ? "password" : "text"}
+                    value={values[f.key] ?? ""}
+                    onChange={e => setField(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                    className={`w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400 ${isPassword ? "pr-10" : ""}`}
+                  />
+                  {isPassword && (
+                    <button type="button" onClick={() => setReveal(r => ({ ...r, [f.key]: !r[f.key] }))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {shown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
+                {f.helpText && <p className="text-[11px] text-gray-400 mt-1">{f.helpText}</p>}
+                {f.helpUrl && (
+                  <a href={f.helpUrl} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline inline-flex items-center gap-0.5 mt-1">
+                    Where do I find this? <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                )}
+              </div>
+            );
+          })}
+
+          {error && (
+            <div className="flex items-start gap-3 p-3 rounded-xl text-sm"
+              style={{ background: "#fff1f2", border: "1px solid #fecdd3", color: "#be123c" }}>
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="flex items-start gap-2 p-3 rounded-xl text-[11px] text-gray-500" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-400" />
+            We call {item.name}&rsquo;s real API with what you enter to confirm it works before marking this connected — nothing is faked, and wrong credentials are rejected.
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3">
+          <div className="flex-1" />
+          <button onClick={onClose}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button onClick={submit} disabled={!canSubmit || fields.length === 0}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+            style={{ background: "#2563eb" }}>
+            {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {connecting ? "Verifying…" : "Verify & Connect"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main page (needs Suspense because it reads searchParams) ───────────── */
 
 function IntegrationsContent() {
@@ -265,6 +468,17 @@ function IntegrationsContent() {
     configured: false, phoneNumber: "", webhookPath: "/api/whatsapp/webhook",
   });
   const [metaAppId, setMetaAppId] = useState<string | null>(null);
+  const [live, setLive]           = useState<Record<string, BackendIntegration>>({});
+  const [connectModalItem, setConnectModalItem] = useState<typeof INTEGRATIONS[number] | null>(null);
+  const [disconnectingKey, setDisconnectingKey] = useState<string | null>(null);
+
+  const loadIntegrations = () => {
+    fetch("/api/integrations").then(r => r.json()).then((d: { integrations?: BackendIntegration[] }) => {
+      const map: Record<string, BackendIntegration> = {};
+      for (const i of d.integrations ?? []) map[i.key] = i;
+      setLive(map);
+    }).catch(() => {});
+  };
 
   /* load current WA status + check if META_APP_ID is configured */
   useEffect(() => {
@@ -281,7 +495,43 @@ function IntegrationsContent() {
     fetch("/api/meta/status").then(r => r.json()).then((d: { appId?: string }) => {
       if (d.appId) setMetaAppId(d.appId);
     }).catch(() => {});
+
+    loadIntegrations();
   }, []);
+
+  /** Called by the ConnectModal once the provider has actually accepted the credentials. */
+  function handleConnectedIntegration(integration: BackendIntegration) {
+    setLive(l => ({ ...l, [integration.key]: integration }));
+    setConnectModalItem(null);
+    setToast({
+      ok: true,
+      msg: integration.accountLabel ? `${integration.name} connected — ${integration.accountLabel}.` : `${integration.name} connected.`,
+    });
+  }
+
+  /** Disconnect an integration — clears the stored credentials server-side, not just a flag. */
+  async function disconnectIntegration(item: typeof INTEGRATIONS[number]) {
+    if (!window.confirm(`Disconnect ${item.name}? Your stored credentials for it will be removed.`)) return;
+    setDisconnectingKey(item.key);
+    try {
+      const res = await fetch("/api/integrations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: item.key }),
+      });
+      const json = await res.json() as { ok: boolean; integration?: BackendIntegration; error?: string };
+      if (json.ok && json.integration) {
+        setLive(l => ({ ...l, [item.key]: json.integration! }));
+        setToast({ ok: true, msg: `${item.name} disconnected.` });
+      } else {
+        setToast({ ok: false, msg: json.error ?? `Failed to disconnect ${item.name}.` });
+      }
+    } catch {
+      setToast({ ok: false, msg: `Failed to reach the server. Try again.` });
+    } finally {
+      setDisconnectingKey(null);
+    }
+  }
 
   /* handle redirect from /api/meta/callback */
   useEffect(() => {
@@ -330,7 +580,7 @@ function IntegrationsContent() {
     i => !search || i.name.toLowerCase().includes(search.toLowerCase())
       || i.category.toLowerCase().includes(search.toLowerCase()),
   );
-  const connectedCount = INTEGRATIONS.filter(i => i.connected).length + (waStatus.configured ? 1 : 0);
+  const connectedCount = INTEGRATIONS.filter(i => live[i.key]?.connected).length + (waStatus.configured ? 1 : 0);
 
   return (
     <div className="min-h-full" style={{ background: "#f8f9fa" }}>
@@ -341,6 +591,9 @@ function IntegrationsContent() {
       )}
       {phoneOptions && (
         <PhoneSelectModal phones={phoneOptions} onClose={() => setPhoneOptions(null)} />
+      )}
+      {connectModalItem && (
+        <ConnectModal item={connectModalItem} onClose={() => setConnectModalItem(null)} onConnected={handleConnectedIntegration} />
       )}
 
       {/* Toast */}
@@ -484,6 +737,9 @@ function IntegrationsContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(int => {
             const color = CAT_COLOR[int.category] ?? "#888";
+            const backend = live[int.key];
+            const connected = !!backend?.connected;
+            const isDisconnecting = disconnectingKey === int.key;
             return (
               <div key={int.key}
                 className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col hover:shadow-md transition-shadow">
@@ -492,7 +748,7 @@ function IntegrationsContent() {
                     style={{ background: `${color}18`, border: `1px solid ${color}30`, color }}>
                     {int.name.charAt(0)}
                   </div>
-                  {int.connected && (
+                  {connected && (
                     <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
                       style={{ background: "#dcfce7", color: "#16a34a" }}>
                       <Check className="w-3 h-3" /> Connected
@@ -502,11 +758,20 @@ function IntegrationsContent() {
                 <h3 className="font-semibold text-gray-800">{int.name}</h3>
                 <span className="text-[11px] mt-0.5 font-medium" style={{ color }}>{int.category}</span>
                 <p className="text-sm text-gray-500 mt-2 flex-1 leading-snug">{int.description}</p>
-                <button className="mt-4 w-full py-2 rounded-xl text-sm font-medium transition-colors border"
-                  style={int.connected
+                {connected && backend?.accountLabel && (
+                  <p className="text-[11px] text-green-700 mt-2 flex items-center gap-1">
+                    <KeyRound className="w-3 h-3 flex-shrink-0" /> {backend.accountLabel}
+                  </p>
+                )}
+                <button
+                  onClick={() => connected ? disconnectIntegration(int) : setConnectModalItem(int)}
+                  disabled={isDisconnecting}
+                  className="mt-4 w-full py-2 rounded-xl text-sm font-medium transition-colors border flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  style={connected
                     ? { background: "#fef2f2", borderColor: "#fecaca", color: "#ef4444" }
                     : { background: `${color}10`, borderColor: `${color}30`, color }}>
-                  {int.connected ? "Disconnect" : "Connect"}
+                  {isDisconnecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {isDisconnecting ? "Disconnecting…" : (connected ? "Disconnect" : "Connect")}
                 </button>
               </div>
             );

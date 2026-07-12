@@ -155,6 +155,10 @@ export interface Integration {
   category: string;
   connected: boolean;
   connectedAt?: string;
+  /** Human-readable confirmation of what got connected (account name, workspace, etc). */
+  accountLabel?: string;
+  /** Real credentials for this connector. Never sent to the client in full — see `toPublicIntegration`. */
+  credentials?: Record<string, string>;
 }
 
 export interface Settings {
@@ -208,6 +212,236 @@ export interface ChatbotSession {
   completed: boolean;
 }
 
+export interface Reminder {
+  id: string;
+  title: string;
+  note?: string;
+  dueAt: string;
+  done: boolean;
+  createdAt: string;
+}
+
+export type SupportTicketStatus = "open" | "pending" | "resolved";
+export type SupportTicketPriority = "low" | "medium" | "high";
+
+export interface SupportReply {
+  id: string;
+  from: "user" | "agent";
+  text: string;
+  at: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  message: string;
+  status: SupportTicketStatus;
+  priority: SupportTicketPriority;
+  replies: SupportReply[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description?: string;
+  contactIds: string[];
+  createdAt: string;
+}
+
+export type TransactionStatus = "paid" | "pending" | "failed" | "refunded";
+
+export interface Transaction {
+  id: string;
+  contactId?: string;
+  contactName: string;
+  amount: number;
+  currency: string;
+  status: TransactionStatus;
+  method: string;
+  reference: string;
+  createdAt: string;
+}
+
+export type WaFormFieldType = "text" | "number" | "email" | "phone" | "select" | "date";
+
+export interface WaFormField {
+  id: string;
+  label: string;
+  type: WaFormFieldType;
+  required: boolean;
+  options?: string[];
+}
+
+export interface WaForm {
+  id: string;
+  name: string;
+  description?: string;
+  fields: WaFormField[];
+  published: boolean;
+  submissionCount: number;
+  createdAt: string;
+}
+
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  data: Record<string, string>;
+  submittedAt: string;
+}
+
+export interface CannedMessage {
+  id: string;
+  shortcut: string;
+  text: string;
+  category: string;
+  createdAt: string;
+}
+
+export interface TagDef {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+}
+
+export type CustomFieldType = "text" | "number" | "date" | "boolean";
+
+export interface CustomField {
+  id: string;
+  key: string;
+  label: string;
+  type: CustomFieldType;
+  createdAt: string;
+}
+
+export interface WebhookEvent {
+  id: string;
+  source: string;
+  event: string;
+  summary: string;
+  payload: unknown;
+  status: "processed" | "failed";
+  receivedAt: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  currency: string;
+  stock: number;
+  imageUrl?: string;
+  createdAt: string;
+}
+
+export interface OrderItem {
+  productId: string;
+  name: string;
+  qty: number;
+  price: number;
+}
+
+export type OrderStatus = "pending" | "paid" | "shipped" | "delivered" | "cancelled";
+
+export interface Order {
+  id: string;
+  contactId?: string;
+  contactName: string;
+  items: OrderItem[];
+  total: number;
+  currency: string;
+  status: OrderStatus;
+  createdAt: string;
+}
+
+export interface Faq {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  enabled: boolean;
+  triggeredCount: number;
+  createdAt: string;
+}
+
+export interface AiAssistantConfig {
+  enabled: boolean;
+  model: string;
+  systemPrompt: string;
+  temperature: number;
+  tone: string;
+  fallbackToHuman: boolean;
+}
+
+export type OrgRole = "owner" | "admin" | "member";
+
+export interface OrgMember {
+  id: string;
+  name: string;
+  email: string;
+  role: OrgRole;
+  joinedAt: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  plan: string;
+  members: OrgMember[];
+  createdAt: string;
+}
+
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  key: string;
+  createdAt: string;
+  lastUsedAt?: string;
+  scopes: string[];
+  revoked: boolean;
+}
+
+export interface Invoice {
+  id: string;
+  amount: number;
+  currency: string;
+  status: "paid" | "due" | "failed";
+  date: string;
+  planLabel: string;
+}
+
+export interface BillingInfo {
+  plan: string;
+  priceMonthly: number;
+  currency: string;
+  renewalDate: string;
+  messagesUsed: number;
+  messagesLimit: number;
+  paymentMethodLast4: string;
+}
+
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  companyName?: string;
+  phone?: string;
+  /** `salt:hash` — scrypt-derived, never sent to the client. */
+  passwordHash: string;
+  createdAt: string;
+}
+
+export interface Session {
+  token: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
 interface DB {
   contacts: Contact[];
   conversations: Conversation[];
@@ -223,6 +457,26 @@ interface DB {
   chatbots: Chatbot[];
   media: MediaFile[];
   chatbotSessions: ChatbotSession[];
+  reminders: Reminder[];
+  supportTickets: SupportTicket[];
+  groups: Group[];
+  transactions: Transaction[];
+  forms: WaForm[];
+  formSubmissions: FormSubmission[];
+  cannedMessages: CannedMessage[];
+  tagDefs: TagDef[];
+  customFields: CustomField[];
+  webhookEvents: WebhookEvent[];
+  products: Product[];
+  orders: Order[];
+  faqs: Faq[];
+  aiAssistant: AiAssistantConfig;
+  organizations: Organization[];
+  apiKeys: ApiKeyRecord[];
+  billing: BillingInfo;
+  invoices: Invoice[];
+  users: User[];
+  sessions: Session[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -339,13 +593,16 @@ function seed(): DB {
     ], enrolledCount: 96, completedCount: 51, createdAt: isoAgo(8000) },
   ];
 
+  // Nothing starts "connected" — every integration requires real, live-validated
+  // credentials via the Integrations page before it's marked connected (see
+  // src/lib/integration-providers.ts). No fake pre-connected demo states.
   const integrations: Integration[] = [
-    { id: newId("int"), key: "shopify", name: "Shopify", description: "Sync orders, customers and abandoned carts.", category: "E-commerce", connected: true, connectedAt: isoAgo(10000) },
-    { id: newId("int"), key: "google_sheets", name: "Google Sheets", description: "Export contacts and message logs to a sheet.", category: "Productivity", connected: true, connectedAt: isoAgo(5000) },
+    { id: newId("int"), key: "shopify", name: "Shopify", description: "Sync orders, customers and abandoned carts.", category: "E-commerce", connected: false },
+    { id: newId("int"), key: "google_sheets", name: "Google Sheets", description: "Export contacts and message logs to a sheet.", category: "Productivity", connected: false },
     { id: newId("int"), key: "hubspot", name: "HubSpot", description: "Two-way contact sync with your CRM.", category: "CRM", connected: false },
     { id: newId("int"), key: "stripe", name: "Stripe", description: "Trigger messages on payments and subscriptions.", category: "Payments", connected: false },
     { id: newId("int"), key: "zapier", name: "Zapier", description: "Connect to 6000+ apps with no code.", category: "Automation", connected: false },
-    { id: newId("int"), key: "openai", name: "OpenAI", description: "Power AI replies with GPT models.", category: "AI", connected: true, connectedAt: isoAgo(3000) },
+    { id: newId("int"), key: "openai", name: "OpenAI", description: "Power AI replies with GPT models.", category: "AI", connected: false },
   ];
 
   const activity: ActivityEvent[] = [
@@ -367,6 +624,162 @@ function seed(): DB {
     { id: newId("med"), filename: "product-banner.jpg", type: "image", size: 90112, url: "https://placehold.co/400x300/1a1a2e/00FF87?text=Product+Banner", createdAt: isoAgo(2000) },
     { id: newId("med"), filename: "promo-video.mp4", type: "video", size: 5242880, url: "", createdAt: isoAgo(5000) },
     { id: newId("med"), filename: "catalog.pdf", type: "document", size: 204800, url: "", createdAt: isoAgo(8000) },
+  ];
+
+  const reminders: Reminder[] = [
+    { id: newId("rem"), title: "Follow up with James Carter", note: "Check if the Pro plan renewal went through.", dueAt: new Date(Date.now() + 3 * 3_600_000).toISOString(), done: false, createdAt: isoAgo(200) },
+    { id: newId("rem"), title: "Review pending template: welcome_offer", dueAt: new Date(Date.now() + 26 * 3_600_000).toISOString(), done: false, createdAt: isoAgo(500) },
+    { id: newId("rem"), title: "Call Sofia Rossi about abandoned cart", dueAt: isoAgo(-60), done: false, createdAt: isoAgo(1000) },
+    { id: newId("rem"), title: "Renew WhatsApp Business API quota", note: "Done last week.", dueAt: isoAgo(2000), done: true, createdAt: isoAgo(4000) },
+  ];
+
+  const supportTickets: SupportTicket[] = [
+    {
+      id: newId("tik"), subject: "Templates stuck in pending for 3 days", status: "open", priority: "high",
+      message: "Our welcome_offer template has been pending approval for 3 days, is that normal?",
+      replies: [
+        { id: newId("rep"), from: "user", text: "Our welcome_offer template has been pending approval for 3 days, is that normal?", at: isoAgo(4200) },
+        { id: newId("rep"), from: "agent", text: "That can happen during high-volume review periods. We'll flag it with Meta support on our side.", at: isoAgo(4000) },
+      ],
+      createdAt: isoAgo(4200), updatedAt: isoAgo(4000),
+    },
+    {
+      id: newId("tik"), subject: "How do I add a second WhatsApp number?", status: "resolved", priority: "low",
+      message: "Can I connect a second WhatsApp Business number to the same workspace?",
+      replies: [
+        { id: newId("rep"), from: "user", text: "Can I connect a second WhatsApp Business number to the same workspace?", at: isoAgo(9000) },
+        { id: newId("rep"), from: "agent", text: "Yes — upgrade to the Agency plan and add it from Settings → Connect WhatsApp Number.", at: isoAgo(8800) },
+      ],
+      createdAt: isoAgo(9000), updatedAt: isoAgo(8800),
+    },
+    {
+      id: newId("tik"), subject: "Billing charged twice this month", status: "pending", priority: "high",
+      message: "I noticed two charges of $79 this month, could you check?",
+      replies: [
+        { id: newId("rep"), from: "user", text: "I noticed two charges of $79 this month, could you check?", at: isoAgo(600) },
+      ],
+      createdAt: isoAgo(600), updatedAt: isoAgo(600),
+    },
+  ];
+
+  const groups: Group[] = [
+    { id: newId("grp"), name: "VIP Customers", description: "High-value repeat customers", contactIds: [contacts[1].id], createdAt: isoAgo(15000) },
+    { id: newId("grp"), name: "Website Leads", description: "Leads captured from the site chat widget", contactIds: [contacts[0].id, contacts[4].id], createdAt: isoAgo(9000) },
+    { id: newId("grp"), name: "Dubai Region", description: "Contacts based in the UAE", contactIds: [contacts[2].id], createdAt: isoAgo(4000) },
+  ];
+
+  const transactions: Transaction[] = [
+    { id: newId("txn"), contactId: contacts[1].id, contactName: contacts[1].name, amount: 249, currency: "USD", status: "paid", method: "Card", reference: "PAY-88213", createdAt: isoAgo(1500) },
+    { id: newId("txn"), contactId: contacts[3].id, contactName: contacts[3].name, amount: 89, currency: "USD", status: "paid", method: "UPI", reference: "PAY-88190", createdAt: isoAgo(3000) },
+    { id: newId("txn"), contactId: contacts[4].id, contactName: contacts[4].name, amount: 129, currency: "EUR", status: "pending", method: "Card", reference: "PAY-88250", createdAt: isoAgo(80) },
+    { id: newId("txn"), contactId: contacts[0].id, contactName: contacts[0].name, amount: 45, currency: "USD", status: "failed", method: "Card", reference: "PAY-88301", createdAt: isoAgo(20) },
+  ];
+
+  const forms: WaForm[] = [
+    {
+      id: newId("frm"), name: "Lead Capture", description: "Collects name, email and interest from new leads", published: true, submissionCount: 214, createdAt: isoAgo(12000),
+      fields: [
+        { id: newId("fld"), label: "Full name", type: "text", required: true },
+        { id: newId("fld"), label: "Email", type: "email", required: true },
+        { id: newId("fld"), label: "What are you interested in?", type: "select", required: false, options: ["Catalog", "Support", "Partnership"] },
+      ],
+    },
+    {
+      id: newId("frm"), name: "Appointment Booking", description: "Books a callback slot", published: false, submissionCount: 32, createdAt: isoAgo(3000),
+      fields: [
+        { id: newId("fld"), label: "Full name", type: "text", required: true },
+        { id: newId("fld"), label: "Phone", type: "phone", required: true },
+        { id: newId("fld"), label: "Preferred date", type: "date", required: true },
+      ],
+    },
+  ];
+
+  const cannedMessages: CannedMessage[] = [
+    { id: newId("cnd"), shortcut: "/hours", text: "We're open Mon–Sat, 9am–7pm IST.", category: "General", createdAt: isoAgo(9000) },
+    { id: newId("cnd"), shortcut: "/refund", text: "Refunds are processed within 5-7 business days back to your original payment method.", category: "Support", createdAt: isoAgo(7000) },
+    { id: newId("cnd"), shortcut: "/thanks", text: "Thank you for reaching out! Let us know if there's anything else we can help with 🙌", category: "General", createdAt: isoAgo(5000) },
+    { id: newId("cnd"), shortcut: "/discount", text: "Here's a 10% discount code for you: SAVE10 🎉", category: "Sales", createdAt: isoAgo(2000) },
+  ];
+
+  const tagDefs: TagDef[] = [
+    { id: newId("tag"), name: "lead", color: "#d97706", createdAt: isoAgo(20000) },
+    { id: newId("tag"), name: "customer", color: "#16a34a", createdAt: isoAgo(20000) },
+    { id: newId("tag"), name: "vip", color: "#7c3aed", createdAt: isoAgo(15000) },
+    { id: newId("tag"), name: "website", color: "#2563eb", createdAt: isoAgo(9000) },
+    { id: newId("tag"), name: "abandoned-cart", color: "#e11d48", createdAt: isoAgo(4000) },
+    { id: newId("tag"), name: "active", color: "#0ea5e9", createdAt: isoAgo(9000) },
+  ];
+
+  const customFields: CustomField[] = [
+    { id: newId("col"), key: "city", label: "City", type: "text", createdAt: isoAgo(20000) },
+    { id: newId("col"), key: "plan", label: "Plan", type: "text", createdAt: isoAgo(15000) },
+    { id: newId("col"), key: "cart_value", label: "Cart Value", type: "text", createdAt: isoAgo(4000) },
+  ];
+
+  const webhookEvents: WebhookEvent[] = [
+    { id: newId("whk"), source: "whatsapp", event: "messages", summary: "Inbound message from +919812345670", payload: { note: "seed data" }, status: "processed", receivedAt: isoAgo(12) },
+    { id: newId("whk"), source: "whatsapp", event: "message_status", summary: "Status update: delivered → read for wamid.HBg...", payload: { note: "seed data" }, status: "processed", receivedAt: isoAgo(60) },
+    { id: newId("whk"), source: "shopify", event: "orders/create", summary: "New order #1042 from Carlos Mendez", payload: { note: "seed data" }, status: "processed", receivedAt: isoAgo(3000) },
+  ];
+
+  const products: Product[] = [
+    { id: newId("prd"), name: "Linen Summer Dress", sku: "DRS-BEI-001", price: 59, currency: "USD", stock: 42, imageUrl: "https://placehold.co/200x200/f5f5f5/333?text=Dress", createdAt: isoAgo(9000) },
+    { id: newId("prd"), name: "Classic Leather Wallet", sku: "WAL-BRN-004", price: 29, currency: "USD", stock: 120, imageUrl: "https://placehold.co/200x200/f5f5f5/333?text=Wallet", createdAt: isoAgo(6000) },
+    { id: newId("prd"), name: "Wireless Earbuds Pro", sku: "AUD-BLK-010", price: 89, currency: "USD", stock: 8, imageUrl: "https://placehold.co/200x200/f5f5f5/333?text=Earbuds", createdAt: isoAgo(3000) },
+  ];
+
+  const orders: Order[] = [
+    { id: newId("ord"), contactId: contacts[1].id, contactName: contacts[1].name, items: [{ productId: products[2].id, name: products[2].name, qty: 1, price: 89 }], total: 89, currency: "USD", status: "delivered", createdAt: isoAgo(9000) },
+    { id: newId("ord"), contactId: contacts[3].id, contactName: contacts[3].name, items: [{ productId: products[1].id, name: products[1].name, qty: 2, price: 29 }], total: 58, currency: "USD", status: "shipped", createdAt: isoAgo(3000) },
+    { id: newId("ord"), contactId: contacts[4].id, contactName: contacts[4].name, items: [{ productId: products[0].id, name: products[0].name, qty: 1, price: 59 }], total: 59, currency: "USD", status: "pending", createdAt: isoAgo(50) },
+  ];
+
+  const faqs: Faq[] = [
+    { id: newId("faq"), question: "What are your business hours?", answer: "We're open Mon–Sat, 9am–7pm IST.", category: "General", enabled: true, triggeredCount: 312, createdAt: isoAgo(20000) },
+    { id: newId("faq"), question: "How long does shipping take?", answer: "Standard shipping takes 3-5 business days.", category: "Orders", enabled: true, triggeredCount: 198, createdAt: isoAgo(15000) },
+    { id: newId("faq"), question: "What is your refund policy?", answer: "Refunds are processed within 5-7 business days of approval.", category: "Support", enabled: true, triggeredCount: 87, createdAt: isoAgo(9000) },
+    { id: newId("faq"), question: "Do you ship internationally?", answer: "Yes, we ship to over 40 countries worldwide.", category: "Orders", enabled: false, triggeredCount: 21, createdAt: isoAgo(4000) },
+  ];
+
+  const aiAssistant: AiAssistantConfig = {
+    enabled: true,
+    model: "gpt-4o-mini",
+    systemPrompt: "You are a friendly, concise WhatsApp support assistant for Neuraxine. Answer questions about orders, shipping and products. Escalate to a human agent if the customer sounds frustrated or asks for a refund.",
+    temperature: 0.6,
+    tone: "friendly",
+    fallbackToHuman: true,
+  };
+
+  const organizations: Organization[] = [
+    {
+      id: newId("org"), name: "Neuraxine Inc.", plan: "Growth", createdAt: isoAgo(30000),
+      members: [
+        { id: newId("mem"), name: "Alex Admin", email: "alex@neuraxine.in", role: "owner", joinedAt: isoAgo(30000) },
+        { id: newId("mem"), name: "Priya Nair", email: "priya@neuraxine.in", role: "admin", joinedAt: isoAgo(18000) },
+        { id: newId("mem"), name: "Rahul Verma", email: "rahul@neuraxine.in", role: "member", joinedAt: isoAgo(6000) },
+      ],
+    },
+  ];
+
+  const apiKeys: ApiKeyRecord[] = [
+    { id: newId("key"), name: "Production server", key: `wfa_live_${randomUUID().replace(/-/g, "")}`, scopes: ["read", "write"], revoked: false, createdAt: isoAgo(20000), lastUsedAt: isoAgo(30) },
+    { id: newId("key"), name: "Zapier integration", key: `wfa_live_${randomUUID().replace(/-/g, "")}`, scopes: ["read"], revoked: false, createdAt: isoAgo(9000), lastUsedAt: isoAgo(500) },
+  ];
+
+  const billing: BillingInfo = {
+    plan: "Growth",
+    priceMonthly: 79,
+    currency: "USD",
+    renewalDate: new Date(Date.now() + 18 * 86_400_000).toISOString(),
+    messagesUsed: 18420,
+    messagesLimit: 25000,
+    paymentMethodLast4: "4242",
+  };
+
+  const invoices: Invoice[] = [
+    { id: newId("inv"), amount: 79, currency: "USD", status: "paid", date: isoAgo(43200), planLabel: "Growth — monthly" },
+    { id: newId("inv"), amount: 79, currency: "USD", status: "paid", date: isoAgo(86400), planLabel: "Growth — monthly" },
+    { id: newId("inv"), amount: 49, currency: "USD", status: "paid", date: isoAgo(129600), planLabel: "Starter — monthly" },
   ];
 
   return {
@@ -391,6 +804,27 @@ function seed(): DB {
     chatbots,
     media,
     chatbotSessions: [],
+    reminders,
+    supportTickets,
+    groups,
+    transactions,
+    forms,
+    formSubmissions: [],
+    cannedMessages,
+    tagDefs,
+    customFields,
+    webhookEvents,
+    products,
+    orders,
+    faqs,
+    aiAssistant,
+    organizations,
+    apiKeys,
+    billing,
+    invoices,
+    // No demo users — real accounts are created through /auth/register.
+    users: [],
+    sessions: [],
   };
 }
 
@@ -409,6 +843,26 @@ export function db(): DB {
   if (!d.chatbots) d.chatbots = seed().chatbots;
   if (!d.media) d.media = seed().media;
   if (!d.chatbotSessions) d.chatbotSessions = [];
+  if (!d.reminders) d.reminders = seed().reminders;
+  if (!d.supportTickets) d.supportTickets = seed().supportTickets;
+  if (!d.groups) d.groups = seed().groups;
+  if (!d.transactions) d.transactions = seed().transactions;
+  if (!d.forms) d.forms = seed().forms;
+  if (!d.formSubmissions) d.formSubmissions = [];
+  if (!d.cannedMessages) d.cannedMessages = seed().cannedMessages;
+  if (!d.tagDefs) d.tagDefs = seed().tagDefs;
+  if (!d.customFields) d.customFields = seed().customFields;
+  if (!d.webhookEvents) d.webhookEvents = seed().webhookEvents;
+  if (!d.products) d.products = seed().products;
+  if (!d.orders) d.orders = seed().orders;
+  if (!d.faqs) d.faqs = seed().faqs;
+  if (!d.aiAssistant) d.aiAssistant = seed().aiAssistant;
+  if (!d.organizations) d.organizations = seed().organizations;
+  if (!d.apiKeys) d.apiKeys = seed().apiKeys;
+  if (!d.billing) d.billing = seed().billing;
+  if (!d.invoices) d.invoices = seed().invoices;
+  if (!d.users) d.users = [];
+  if (!d.sessions) d.sessions = [];
   return d;
 }
 
@@ -665,13 +1119,63 @@ export function listIntegrations(): Integration[] {
   return db().integrations;
 }
 
-export function toggleIntegration(id: string, connected: boolean): Integration | undefined {
-  const int = db().integrations.find((i) => i.id === id);
-  if (int) {
-    int.connected = connected;
-    int.connectedAt = connected ? new Date().toISOString() : undefined;
+export function getIntegrationByKey(key: string): Integration | undefined {
+  return db().integrations.find((i) => i.key === key);
+}
+
+/**
+ * Mark an integration connected with real, already-validated credentials.
+ * Callers must have verified the credentials against the provider's live API
+ * (see `src/lib/integration-providers.ts`) before calling this — this
+ * function itself does no validation, it only persists the result.
+ */
+export function connectIntegration(input: {
+  key: string; name: string; description: string; category: string;
+  credentials: Record<string, string>; accountLabel?: string;
+}): Integration {
+  const existing = getIntegrationByKey(input.key);
+  const now = new Date().toISOString();
+  if (existing) {
+    existing.name = input.name;
+    existing.description = input.description;
+    existing.category = input.category;
+    existing.connected = true;
+    existing.connectedAt = now;
+    existing.credentials = input.credentials;
+    existing.accountLabel = input.accountLabel;
+    return existing;
   }
-  return int;
+  const integration: Integration = {
+    id: newId("int"),
+    key: input.key,
+    name: input.name,
+    description: input.description,
+    category: input.category,
+    connected: true,
+    connectedAt: now,
+    credentials: input.credentials,
+    accountLabel: input.accountLabel,
+  };
+  db().integrations.push(integration);
+  return integration;
+}
+
+/** Disconnect an integration and wipe its stored credentials — a real revoke, not just a flag flip. */
+export function disconnectIntegration(key: string): Integration | undefined {
+  const integration = getIntegrationByKey(key);
+  if (integration) {
+    integration.connected = false;
+    integration.connectedAt = undefined;
+    integration.credentials = undefined;
+    integration.accountLabel = undefined;
+  }
+  return integration;
+}
+
+/** Strip real credentials before sending an integration to the client. */
+export function toPublicIntegration(i: Integration): Omit<Integration, "credentials"> & { hasCredentials: boolean } {
+  const { credentials, ...rest } = i;
+  return { ...rest, hasCredentials: !!credentials && Object.keys(credentials).length > 0 };
 }
 
 export function getSettings(): Settings {
@@ -738,4 +1242,476 @@ export function addMedia(input: Omit<MediaFile, "id" | "createdAt">): MediaFile 
   };
   db().media.push(file);
   return file;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Reminders                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export function listReminders(): Reminder[] {
+  return [...db().reminders].sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+}
+
+export function createReminder(input: Omit<Reminder, "id" | "createdAt" | "done">): Reminder {
+  const reminder: Reminder = { ...input, id: newId("rem"), done: false, createdAt: new Date().toISOString() };
+  db().reminders.push(reminder);
+  return reminder;
+}
+
+export function updateReminder(id: string, patch: Partial<Reminder>): Reminder | undefined {
+  const r = db().reminders.find((x) => x.id === id);
+  if (r) Object.assign(r, patch);
+  return r;
+}
+
+export function deleteReminder(id: string): void {
+  db().reminders = db().reminders.filter((r) => r.id !== id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Support tickets                                                            */
+/* -------------------------------------------------------------------------- */
+
+export function listSupportTickets(): SupportTicket[] {
+  return [...db().supportTickets].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export function getSupportTicket(id: string): SupportTicket | undefined {
+  return db().supportTickets.find((t) => t.id === id);
+}
+
+export function createSupportTicket(input: { subject: string; message: string; priority: SupportTicketPriority }): SupportTicket {
+  const now = new Date().toISOString();
+  const ticket: SupportTicket = {
+    id: newId("tik"),
+    subject: input.subject,
+    message: input.message,
+    status: "open",
+    priority: input.priority,
+    replies: [{ id: newId("rep"), from: "user", text: input.message, at: now }],
+    createdAt: now,
+    updatedAt: now,
+  };
+  db().supportTickets.push(ticket);
+  return ticket;
+}
+
+export function updateSupportTicket(id: string, patch: Partial<Pick<SupportTicket, "status" | "priority">>): SupportTicket | undefined {
+  const t = db().supportTickets.find((x) => x.id === id);
+  if (t) {
+    Object.assign(t, patch);
+    t.updatedAt = new Date().toISOString();
+  }
+  return t;
+}
+
+export function addSupportReply(id: string, from: "user" | "agent", text: string): SupportTicket | undefined {
+  const t = db().supportTickets.find((x) => x.id === id);
+  if (!t) return undefined;
+  const now = new Date().toISOString();
+  t.replies.push({ id: newId("rep"), from, text, at: now });
+  t.updatedAt = now;
+  if (from === "user" && t.status === "resolved") t.status = "open";
+  return t;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Groups                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export function listGroups(): Array<Group & { contacts: Contact[] }> {
+  return [...db().groups]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((g) => ({ ...g, contacts: g.contactIds.map((id) => getContact(id)).filter((c): c is Contact => !!c) }));
+}
+
+export function createGroup(input: { name: string; description?: string; contactIds?: string[] }): Group {
+  const group: Group = { id: newId("grp"), name: input.name, description: input.description, contactIds: input.contactIds ?? [], createdAt: new Date().toISOString() };
+  db().groups.push(group);
+  return group;
+}
+
+export function updateGroup(id: string, patch: Partial<Group>): Group | undefined {
+  const g = db().groups.find((x) => x.id === id);
+  if (g) Object.assign(g, patch);
+  return g;
+}
+
+export function deleteGroup(id: string): void {
+  db().groups = db().groups.filter((g) => g.id !== id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Transactions                                                               */
+/* -------------------------------------------------------------------------- */
+
+export function listTransactions(): Transaction[] {
+  return [...db().transactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createTransaction(input: Omit<Transaction, "id" | "createdAt">): Transaction {
+  const txn: Transaction = { ...input, id: newId("txn"), createdAt: new Date().toISOString() };
+  db().transactions.push(txn);
+  return txn;
+}
+
+export function updateTransaction(id: string, patch: Partial<Transaction>): Transaction | undefined {
+  const t = db().transactions.find((x) => x.id === id);
+  if (t) Object.assign(t, patch);
+  return t;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  WhatsApp Forms                                                             */
+/* -------------------------------------------------------------------------- */
+
+export function listForms(): WaForm[] {
+  return [...db().forms].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function getForm(id: string): WaForm | undefined {
+  return db().forms.find((f) => f.id === id);
+}
+
+export function createForm(input: { name: string; description?: string; fields: Omit<WaFormField, "id">[] }): WaForm {
+  const form: WaForm = {
+    id: newId("frm"),
+    name: input.name,
+    description: input.description,
+    fields: input.fields.map((f) => ({ ...f, id: newId("fld") })),
+    published: false,
+    submissionCount: 0,
+    createdAt: new Date().toISOString(),
+  };
+  db().forms.push(form);
+  return form;
+}
+
+export function updateForm(id: string, patch: Partial<Pick<WaForm, "name" | "description" | "published" | "fields">>): WaForm | undefined {
+  const f = db().forms.find((x) => x.id === id);
+  if (f) Object.assign(f, patch);
+  return f;
+}
+
+export function deleteForm(id: string): void {
+  db().forms = db().forms.filter((f) => f.id !== id);
+}
+
+export function submitForm(formId: string, data: Record<string, string>): FormSubmission | undefined {
+  const form = getForm(formId);
+  if (!form) return undefined;
+  const submission: FormSubmission = { id: newId("sub"), formId, data, submittedAt: new Date().toISOString() };
+  db().formSubmissions.push(submission);
+  form.submissionCount += 1;
+  return submission;
+}
+
+export function listFormSubmissions(formId: string): FormSubmission[] {
+  return db().formSubmissions.filter((s) => s.formId === formId).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Canned messages                                                            */
+/* -------------------------------------------------------------------------- */
+
+export function listCannedMessages(): CannedMessage[] {
+  return [...db().cannedMessages].sort((a, b) => a.shortcut.localeCompare(b.shortcut));
+}
+
+export function createCannedMessage(input: Omit<CannedMessage, "id" | "createdAt">): CannedMessage {
+  const msg: CannedMessage = { ...input, id: newId("cnd"), createdAt: new Date().toISOString() };
+  db().cannedMessages.push(msg);
+  return msg;
+}
+
+export function updateCannedMessage(id: string, patch: Partial<CannedMessage>): CannedMessage | undefined {
+  const m = db().cannedMessages.find((x) => x.id === id);
+  if (m) Object.assign(m, patch);
+  return m;
+}
+
+export function deleteCannedMessage(id: string): void {
+  db().cannedMessages = db().cannedMessages.filter((m) => m.id !== id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Tags                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export function listTagDefs(): Array<TagDef & { count: number }> {
+  const contacts = db().contacts;
+  return [...db().tagDefs]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((t) => ({ ...t, count: contacts.filter((c) => c.tags.includes(t.name)).length }));
+}
+
+export function createTagDef(input: { name: string; color: string }): TagDef {
+  const tag: TagDef = { id: newId("tag"), name: input.name, color: input.color, createdAt: new Date().toISOString() };
+  db().tagDefs.push(tag);
+  return tag;
+}
+
+export function deleteTagDef(id: string): void {
+  const tag = db().tagDefs.find((t) => t.id === id);
+  db().tagDefs = db().tagDefs.filter((t) => t.id !== id);
+  if (tag) {
+    for (const c of db().contacts) c.tags = c.tags.filter((t) => t !== tag.name);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Custom fields (Columns)                                                    */
+/* -------------------------------------------------------------------------- */
+
+export function listCustomFields(): CustomField[] {
+  return [...db().customFields].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export function createCustomField(input: Omit<CustomField, "id" | "createdAt">): CustomField {
+  const field: CustomField = { ...input, id: newId("col"), createdAt: new Date().toISOString() };
+  db().customFields.push(field);
+  return field;
+}
+
+export function deleteCustomField(id: string): void {
+  db().customFields = db().customFields.filter((f) => f.id !== id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Webhook events                                                             */
+/* -------------------------------------------------------------------------- */
+
+export function listWebhookEvents(): WebhookEvent[] {
+  return [...db().webhookEvents].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)).slice(0, 200);
+}
+
+export function logWebhookEvent(input: Omit<WebhookEvent, "id" | "receivedAt">): WebhookEvent {
+  const event: WebhookEvent = { ...input, id: newId("whk"), receivedAt: new Date().toISOString() };
+  db().webhookEvents.unshift(event);
+  db().webhookEvents = db().webhookEvents.slice(0, 200);
+  return event;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Commerce: products & orders                                                */
+/* -------------------------------------------------------------------------- */
+
+export function listProducts(): Product[] {
+  return [...db().products].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createProduct(input: Omit<Product, "id" | "createdAt">): Product {
+  const product: Product = { ...input, id: newId("prd"), createdAt: new Date().toISOString() };
+  db().products.push(product);
+  return product;
+}
+
+export function updateProduct(id: string, patch: Partial<Product>): Product | undefined {
+  const p = db().products.find((x) => x.id === id);
+  if (p) Object.assign(p, patch);
+  return p;
+}
+
+export function deleteProduct(id: string): void {
+  db().products = db().products.filter((p) => p.id !== id);
+}
+
+export function listOrders(): Order[] {
+  return [...db().orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createOrder(input: Omit<Order, "id" | "createdAt">): Order {
+  const order: Order = { ...input, id: newId("ord"), createdAt: new Date().toISOString() };
+  db().orders.push(order);
+  return order;
+}
+
+export function updateOrder(id: string, patch: Partial<Order>): Order | undefined {
+  const o = db().orders.find((x) => x.id === id);
+  if (o) Object.assign(o, patch);
+  return o;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  FAQ bot                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export function listFaqs(): Faq[] {
+  return [...db().faqs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createFaq(input: Omit<Faq, "id" | "createdAt" | "triggeredCount">): Faq {
+  const faq: Faq = { ...input, id: newId("faq"), triggeredCount: 0, createdAt: new Date().toISOString() };
+  db().faqs.push(faq);
+  return faq;
+}
+
+export function updateFaq(id: string, patch: Partial<Faq>): Faq | undefined {
+  const f = db().faqs.find((x) => x.id === id);
+  if (f) Object.assign(f, patch);
+  return f;
+}
+
+export function deleteFaq(id: string): void {
+  db().faqs = db().faqs.filter((f) => f.id !== id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  AI Assistant                                                               */
+/* -------------------------------------------------------------------------- */
+
+export function getAiAssistant(): AiAssistantConfig {
+  return db().aiAssistant;
+}
+
+export function updateAiAssistant(patch: Partial<AiAssistantConfig>): AiAssistantConfig {
+  Object.assign(db().aiAssistant, patch);
+  return db().aiAssistant;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Organizations                                                              */
+/* -------------------------------------------------------------------------- */
+
+export function listOrganizations(): Organization[] {
+  return db().organizations;
+}
+
+export function addOrgMember(orgId: string, input: { name: string; email: string; role: OrgRole }): OrgMember | undefined {
+  const org = db().organizations.find((o) => o.id === orgId);
+  if (!org) return undefined;
+  const member: OrgMember = { id: newId("mem"), name: input.name, email: input.email, role: input.role, joinedAt: new Date().toISOString() };
+  org.members.push(member);
+  return member;
+}
+
+export function updateOrgMember(orgId: string, memberId: string, patch: Partial<Pick<OrgMember, "role">>): OrgMember | undefined {
+  const org = db().organizations.find((o) => o.id === orgId);
+  const member = org?.members.find((m) => m.id === memberId);
+  if (member) Object.assign(member, patch);
+  return member;
+}
+
+export function removeOrgMember(orgId: string, memberId: string): void {
+  const org = db().organizations.find((o) => o.id === orgId);
+  if (org) org.members = org.members.filter((m) => m.id !== memberId);
+}
+
+export function updateOrganization(orgId: string, patch: Partial<Pick<Organization, "name" | "plan">>): Organization | undefined {
+  const org = db().organizations.find((o) => o.id === orgId);
+  if (org) Object.assign(org, patch);
+  return org;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  API keys                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export function listApiKeys(): ApiKeyRecord[] {
+  return [...db().apiKeys].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createApiKey(input: { name: string; scopes: string[] }): ApiKeyRecord {
+  const key: ApiKeyRecord = {
+    id: newId("key"),
+    name: input.name,
+    key: `wfa_live_${randomUUID().replace(/-/g, "")}`,
+    scopes: input.scopes,
+    revoked: false,
+    createdAt: new Date().toISOString(),
+  };
+  db().apiKeys.push(key);
+  return key;
+}
+
+export function revokeApiKey(id: string): ApiKeyRecord | undefined {
+  const key = db().apiKeys.find((k) => k.id === id);
+  if (key) key.revoked = true;
+  return key;
+}
+
+export function deleteApiKey(id: string): void {
+  db().apiKeys = db().apiKeys.filter((k) => k.id !== id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Billing                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export function getBilling(): BillingInfo {
+  return db().billing;
+}
+
+export function updateBilling(patch: Partial<BillingInfo>): BillingInfo {
+  Object.assign(db().billing, patch);
+  return db().billing;
+}
+
+export function listInvoices(): Invoice[] {
+  return [...db().invoices].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Users & sessions (auth)                                                    */
+/* -------------------------------------------------------------------------- */
+
+export function getUserByEmail(email: string): User | undefined {
+  const normalized = email.trim().toLowerCase();
+  return db().users.find((u) => u.email === normalized);
+}
+
+export function getUserById(id: string): User | undefined {
+  return db().users.find((u) => u.id === id);
+}
+
+export function createUser(input: {
+  firstName: string; lastName: string; email: string;
+  companyName?: string; phone?: string; passwordHash: string;
+}): User {
+  const user: User = {
+    id: newId("usr"),
+    firstName: input.firstName,
+    lastName: input.lastName,
+    email: input.email.trim().toLowerCase(),
+    companyName: input.companyName,
+    phone: input.phone,
+    passwordHash: input.passwordHash,
+    createdAt: new Date().toISOString(),
+  };
+  db().users.push(user);
+  return user;
+}
+
+/** Strip the password hash before sending a user to the client. */
+export function toPublicUser(u: User): Omit<User, "passwordHash"> {
+  const { passwordHash: _passwordHash, ...rest } = u;
+  return rest;
+}
+
+const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+export function createSession(userId: string): Session {
+  const now = Date.now();
+  const session: Session = {
+    token: `${randomUUID()}${randomUUID()}`.replace(/-/g, ""),
+    userId,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + SESSION_LIFETIME_MS).toISOString(),
+  };
+  db().sessions.push(session);
+  return session;
+}
+
+export function getSession(token: string): Session | undefined {
+  const session = db().sessions.find((s) => s.token === token);
+  if (!session) return undefined;
+  if (new Date(session.expiresAt).getTime() < Date.now()) {
+    deleteSession(token);
+    return undefined;
+  }
+  return session;
+}
+
+export function deleteSession(token: string): void {
+  db().sessions = db().sessions.filter((s) => s.token !== token);
 }
