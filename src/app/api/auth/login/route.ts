@@ -1,10 +1,9 @@
-import { ensureLoaded, getUserByEmail, toPublicUser } from "@/lib/store";
+import { getUserByEmail, toPublicUser } from "@/lib/store";
 import { startSession, verifyPassword } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
-  await ensureLoaded();
   let body: { email?: string; password?: string };
   try {
     body = await request.json();
@@ -18,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ ok: false, error: "Email and password are required." }, { status: 400 });
   }
 
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return Response.json({ ok: false, error: "Invalid email or password." }, { status: 401 });
   }

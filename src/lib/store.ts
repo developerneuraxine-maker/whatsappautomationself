@@ -14,6 +14,7 @@
 
 import { randomUUID } from "node:crypto";
 import { loadSnapshot, persistenceEnabled, saveSnapshot } from "@/lib/persistence";
+import { supabaseAdmin } from "@/lib/supabase";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -475,8 +476,10 @@ interface DB {
   apiKeys: ApiKeyRecord[];
   billing: BillingInfo;
   invoices: Invoice[];
-  users: User[];
-  sessions: Session[];
+  // Users & sessions are NOT part of this in-memory store — they live in
+  // real Supabase Postgres tables (see the "Users & sessions" section below),
+  // since auth must work correctly across Vercel's separate serverless
+  // instances, which don't share this in-memory object.
 }
 
 /* -------------------------------------------------------------------------- */
@@ -822,9 +825,6 @@ function seed(): DB {
     apiKeys,
     billing,
     invoices,
-    // No demo users — real accounts are created through /auth/register.
-    users: [],
-    sessions: [],
   };
 }
 
@@ -861,8 +861,6 @@ export function db(): DB {
   if (!d.apiKeys) d.apiKeys = seed().apiKeys;
   if (!d.billing) d.billing = seed().billing;
   if (!d.invoices) d.invoices = seed().invoices;
-  if (!d.users) d.users = [];
-  if (!d.sessions) d.sessions = [];
   return d;
 }
 
@@ -1652,34 +1650,64 @@ export function listInvoices(): Invoice[] {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Users & sessions (auth)                                                    */
+/*  Users & sessions (auth) — real Supabase Postgres tables, NOT the in-memory */
+/*  store above. Auth must be consistent across every Vercel serverless        */
+/*  instance, which don't share the in-memory `db()` object with each other.   */
 /* -------------------------------------------------------------------------- */
 
-export function getUserByEmail(email: string): User | undefined {
+interface UserRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  company_name: string | null;
+  phone: string | null;
+  password_hash: string;
+  created_at: string;
+}
+
+function userFromRow(row: UserRow): User {
+  return {
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    companyName: row.company_name ?? undefined,
+    phone: row.phone ?? undefined,
+    passwordHash: row.password_hash,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getUserByEmail(email: string): Promise<User | undefined> {
   const normalized = email.trim().toLowerCase();
-  return db().users.find((u) => u.email === normalized);
+  const { data, error } = await supabaseAdmin().from("users").select("*").eq("email", normalized).maybeSingle();
+  if (error) throw new Error(`getUserByEmail failed: ${error.message}`);
+  return data ? userFromRow(data as UserRow) : undefined;
 }
 
-export function getUserById(id: string): User | undefined {
-  return db().users.find((u) => u.id === id);
+export async function getUserById(id: string): Promise<User | undefined> {
+  const { data, error } = await supabaseAdmin().from("users").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(`getUserById failed: ${error.message}`);
+  return data ? userFromRow(data as UserRow) : undefined;
 }
 
-export function createUser(input: {
+export async function createUser(input: {
   firstName: string; lastName: string; email: string;
   companyName?: string; phone?: string; passwordHash: string;
-}): User {
-  const user: User = {
+}): Promise<User> {
+  const row = {
     id: newId("usr"),
-    firstName: input.firstName,
-    lastName: input.lastName,
+    first_name: input.firstName,
+    last_name: input.lastName,
     email: input.email.trim().toLowerCase(),
-    companyName: input.companyName,
-    phone: input.phone,
-    passwordHash: input.passwordHash,
-    createdAt: new Date().toISOString(),
+    company_name: input.companyName ?? null,
+    phone: input.phone ?? null,
+    password_hash: input.passwordHash,
   };
-  db().users.push(user);
-  return user;
+  const { data, error } = await supabaseAdmin().from("users").insert(row).select().single();
+  if (error) throw new Error(`createUser failed: ${error.message}`);
+  return userFromRow(data as UserRow);
 }
 
 /** Strip the password hash before sending a user to the client. */
@@ -1690,28 +1718,41 @@ export function toPublicUser(u: User): Omit<User, "passwordHash"> {
 
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-export function createSession(userId: string): Session {
-  const now = Date.now();
-  const session: Session = {
-    token: `${randomUUID()}${randomUUID()}`.replace(/-/g, ""),
-    userId,
-    createdAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + SESSION_LIFETIME_MS).toISOString(),
-  };
-  db().sessions.push(session);
-  return session;
+interface SessionRow {
+  token: string;
+  user_id: string;
+  created_at: string;
+  expires_at: string;
 }
 
-export function getSession(token: string): Session | undefined {
-  const session = db().sessions.find((s) => s.token === token);
-  if (!session) return undefined;
+function sessionFromRow(row: SessionRow): Session {
+  return { token: row.token, userId: row.user_id, createdAt: row.created_at, expiresAt: row.expires_at };
+}
+
+export async function createSession(userId: string): Promise<Session> {
+  const row = {
+    token: `${randomUUID()}${randomUUID()}`.replace(/-/g, ""),
+    user_id: userId,
+    expires_at: new Date(Date.now() + SESSION_LIFETIME_MS).toISOString(),
+  };
+  const { data, error } = await supabaseAdmin().from("sessions").insert(row).select().single();
+  if (error) throw new Error(`createSession failed: ${error.message}`);
+  return sessionFromRow(data as SessionRow);
+}
+
+export async function getSession(token: string): Promise<Session | undefined> {
+  const { data, error } = await supabaseAdmin().from("sessions").select("*").eq("token", token).maybeSingle();
+  if (error) throw new Error(`getSession failed: ${error.message}`);
+  if (!data) return undefined;
+  const session = sessionFromRow(data as SessionRow);
   if (new Date(session.expiresAt).getTime() < Date.now()) {
-    deleteSession(token);
+    await deleteSession(token);
     return undefined;
   }
   return session;
 }
 
-export function deleteSession(token: string): void {
-  db().sessions = db().sessions.filter((s) => s.token !== token);
+export async function deleteSession(token: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("sessions").delete().eq("token", token);
+  if (error) throw new Error(`deleteSession failed: ${error.message}`);
 }

@@ -41,7 +41,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 /** Create a session for this user and set the session cookie on the response. */
 export async function startSession(userId: string): Promise<void> {
-  const session = createSession(userId);
+  const session = await createSession(userId);
   const store = await cookies();
   store.set(SESSION_COOKIE, session.token, {
     httpOnly: true,
@@ -55,7 +55,7 @@ export async function startSession(userId: string): Promise<void> {
 export async function endSession(): Promise<void> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) deleteSession(token);
+  if (token) await deleteSession(token);
   store.delete(SESSION_COOKIE);
 }
 
@@ -64,7 +64,7 @@ export async function getCurrentUser(): Promise<User | undefined> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return undefined;
-  const session = getSession(token);
+  const session = await getSession(token);
   if (!session) return undefined;
   return getUserById(session.userId);
 }
